@@ -1,95 +1,99 @@
-import Image from 'next/image'
-import styles from './page.module.css'
+'use client';
+// React
+import { useState } from "react";
 
-export default function Home() {
+// Material UI
+import { Grid, Button, Modal, Typography, Box } from "@mui/material";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
+// Utils
+import { ApiDevices, DevicesList } from "@/utils";
+import { Process } from "@/Process";
+// Hooks
+import { useInterval } from "usehooks-ts";
+
+function Phones() {
+  const [devices, setDevices] = useState<ApiDevices>([]);
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [selectedDevice, setSelectedDevice] = useState<{ id: string, name: string, process: Process | null, battery: string }>({ id: "", name: "", battery: "", process: null })
+  const lightTheme = createTheme({ palette: { mode: "light" } });
+  const handleClose = () => {
+    setIsOpen(false);
+    return;
+  }
+
+
+  const fetchDevices = async () => {
+    const result = await fetch('/api/fetchDevices');
+    const data = await result.json();
+    setDevices(data);
+  }
+
+  const handleSelection = (id: string) => {
+    setIsOpen(true);
+    const d = devices.find((device) => device.id === id);
+    if (d) {
+      setSelectedDevice(d);
+    }
+    else {
+      setSelectedDevice({ id: '', name: "Device not found !", process: null, battery: "X" });
+    }
+  }
+  useInterval(fetchDevices, 1000 * 10);
+
+  const modalStyling = {
+    position: 'absolute' as 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: 400,
+    bgcolor: 'background.paper',
+    borderRadius: 4,
+    boxShadow: 24,
+    p: 4,
+  };
+
   return (
-    <main className={styles.main}>
-      <div className={styles.description}>
-        <p>
-          Get started by editing&nbsp;
-          <code className={styles.code}>src/app/page.tsx</code>
-        </p>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className={styles.vercelLogo}
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
-
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className={styles.grid}>
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p>Find in-depth information about Next.js features and API.</p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Learn <span>-&gt;</span>
-          </h2>
-          <p>Learn about Next.js in an interactive course with&nbsp;quizzes!</p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p>Explore the Next.js 13 playground.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  )
+    <ThemeProvider theme={lightTheme}>
+    <Typography variant="h2" align={"center"}>Devices</Typography>
+      <Box sx={{ flexGrow: 1, padding: '2rem 3rem' }}>
+        <Grid container spacing={4}>
+          {
+            Object.entries(DevicesList).map(([key, value]: [key: string, value: string]) => {
+              if (devices.find(element => element.id === key && element.name === value)) {
+                return <Grid item key={key} lg={1}>
+                  <Button sx={{padding: 1}} onClick={(event) => handleSelection(event.currentTarget.value)} variant="contained" value={key} color="info" key={`${value} ${key}`}>
+                    {value}
+                  </Button>
+                </Grid>
+              }
+              else {
+                return <Grid item key={key} lg={1} >
+                  <Button sx={{padding: 1}} onClick={(event) => handleSelection(event.currentTarget.value)} value={key} variant="contained" color="error" key={`${key} ${value}`}>
+                    {value}
+                  </Button>
+                </Grid>
+              }
+            })
+          }
+        </Grid>
+        <Modal
+          aria-labelledby="Phone pop-up"
+          aria-describedby="Preview Phone status"
+          open={isOpen}
+          onClose={handleClose}>
+          <Box sx={modalStyling}>
+            {selectedDevice.name === "Device not found !" ? <Typography>{selectedDevice.name}</Typography> : <>
+              <Typography sx={{ fontSize: 30, paddingBottom: 3 }}>{selectedDevice.name}</Typography>
+              <Typography color={selectedDevice.process ? 'black' : 'red'} sx={{ fontSize: 20 }}>
+                {selectedDevice.process ? selectedDevice.process.username : "No process"}
+              </Typography>
+              <Typography>{selectedDevice.process?.configFile}</Typography>
+            </>}
+          </Box>
+        </Modal>
+      </Box>
+    </ThemeProvider>
+  );
 }
+
+export default Phones;
