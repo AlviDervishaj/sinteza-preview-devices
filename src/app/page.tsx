@@ -6,40 +6,62 @@ import { useEffect, useState } from "react";
 import { Grid, Button, Modal, Typography, Box } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 // Utils
-import { ApiDevices, DevicesList, Device, EmitTypes, EventTypes } from "@/utils";
+import { DevicesList, Device, EmitTypes, EventTypes } from "@/utils";
 // Hooks
-import { useInterval } from "usehooks-ts";
+import { useEffectOnce, useInterval } from "usehooks-ts";
 import { io, Socket } from "socket.io-client";
 
+let socket: Socket;
 function Phones() {
-  const socket: Socket = io("ws://localhost:3030/");
   const [devices, setDevices] = useState<Device[]>([]);
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [selectedDevice, setSelectedDevice] = useState<{ id: string, name: string, process: { username: string, configFile: string } | null, battery: string }>({ id: "", name: "", battery: "", process: null })
+  const [selectedDevice, setSelectedDevice] = useState<Device>(new Device("", "", "", null));
   const lightTheme = createTheme({ palette: { mode: "light" } });
   const handleClose = () => {
     setIsOpen(false);
     return;
   }
 
-  socket.on<EmitTypes>("get-devices-message", (devices: { _id: string, _name: string, _battery: string, _process: null | { username: string, configFile: string } }[]) => {
-    if (devices.length > 0) {
-      let temp: Device[] = [];
-      devices.forEach((_device) => {
-        temp.push(new Device(_device._id, _device._name, _device._battery, _device._process));
-      })
-      setDevices([...temp]);
-      return;
-    }
-    setDevices([]);
-    return;
-  })
+  const findProcess = () => {
+    if (selectedDevice.process) return (
+      <>
+        <Typography sx={{fontSize: 20}}>
+          Username: {selectedDevice.process.username}
+        </Typography>
+        <Typography sx={{fontSize: 20}}>
+          Config: {selectedDevice.process.configFile}
+        </Typography>
+      </>
+    )
+    else return undefined;
+  }
 
   useEffect(() => {
+    function handleSocketConnection() {
+      socket = io("ws://localhost:3030", { autoConnect: true, closeOnBeforeunload: true });
+
+      socket.on<EmitTypes>("get-devices-message", (devices: { _id: string, _name: string, _battery: string, _process: null | { username: string, configFile: string } }[]) => {
+        if (devices.length > 0) {
+          let temp: Device[] = [];
+          devices.forEach((_device) => {
+            temp.push(new Device(_device._id, _device._name, _device._battery, _device._process));
+          })
+          setDevices([...temp]);
+          return;
+        }
+        setDevices([]);
+        return;
+      });
+    }
+    handleSocketConnection();
     return () => {
       socket.disconnect()
     };
-  }, [socket])
+  }, [])
+  useEffectOnce(() => {
+    socket.emit<EventTypes>("get-devices");
+  })
+
 
 
   const fetchDevices = async () => {
@@ -53,7 +75,7 @@ function Phones() {
       setSelectedDevice(d);
     }
     else {
-      setSelectedDevice({ id: '', name: "Device not found !", process: null, battery: "X" });
+      setSelectedDevice(new Device("", "", "", null));
     }
   }
   useInterval(fetchDevices, 1000 * 15);
@@ -102,10 +124,7 @@ function Phones() {
           <Box sx={modalStyling}>
             {selectedDevice.name === "Device not found !" ? <Typography>{selectedDevice.name}</Typography> : <>
               <Typography sx={{ fontSize: 30, paddingBottom: 3 }}>{selectedDevice.name}</Typography>
-              <Typography color={selectedDevice.process ? 'black' : 'red'} sx={{ fontSize: 20 }}>
-                {selectedDevice.process ? selectedDevice.process.username : "No process"}
-              </Typography>
-              <Typography>{selectedDevice.process?.configFile}</Typography>
+              {findProcess() ? findProcess() : "No process"}
             </>}
           </Box>
         </Modal>

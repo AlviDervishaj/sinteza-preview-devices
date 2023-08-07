@@ -1,9 +1,10 @@
 import { Process } from "./Process";
 
-
 // Event Server Types
 export type EventTypes = "get-processes" |
   "get-config" |
+  "start-process-again" |
+  "create-processes" |
   "get-session" |
   "create-devices" |
   "terminate-process" |
